@@ -1,0 +1,143 @@
+/**************************Header************************/
+nav{
+    background-color: #1b1717;
+}
+nav a img{
+    border-radius: 1.5rem;
+}
+nav div li.second{
+position: relative;
+right: -14%;
+}
+
+nav div li.third{
+    position: relative;
+    right: -20%;
+    margin-right: 0rem;
+}
+
+nav div li.fourth{
+    position: relative;
+    right:1%;
+}
+/*********************body*****************************/
+body{
+    background-color: #eeebdd;
+    width:inherit;
+}
+/********************preview****************************/
+.prev-first {
+margin:2rem auto 2rem;
+text-align:center;
+background-color: white;
+padding:2rem 0;
+box-shadow:0px 0px 16px 10px rgba(0, 0, 0, 0.2);
+}
+/* .prev-first video{
+    position: relative;
+} */
+.prev-first div{
+margin: 0 0 0 0 !important;
+position: relative;
+left:28%;
+}
+.prev-second {
+padding: 0;
+}
+.prev-second div{
+padding:0.5px 0.5px 0 0;
+}
+ .prev-second img{
+width: inherit;
+
+ }
+
+ .prev-second .first img{
+     height:40rem;
+ }
+     .prev-second .second img,.prev-second .third img,.prev-second .sixth img{
+    width: 100%;
+    height:30rem;
+ }
+ .prev-second .fifth img{
+     width: 100%;
+     height:100%;
+ }
+ video{
+    object-fit: fill;
+    height: 100%;
+    width: 100%;
+ }
+ .prev-second .sixth{
+     height:35rem;
+ }
+/***********************register***********************/
+.reg, .log ,.everi, .cveri{
+    background-color: white;
+    text-align: center;
+    margin: 5rem auto;
+    padding:5rem 0;
+    width: 45%;
+    background: url("/images/signup.png") no-repeat;
+    box-shadow:0px 0px 16px 10px rgba(0, 0, 0, 0.2);
+    background-size:100%;
+}
+.reg form, .log form, .everi form, .cveri form{
+    padding: 0rem 1rem;
+    position: relative;
+    left:25%;
+    border:10px;
+    border-radius: 10px;
+}
+.reg h1,.log h1 ,.everi h1,.cveri h1{
+padding:1rem 0 0rem;
+color:#1b1717;
+}
+.reg p,.log p ,.everi p,.cveri p{
+    margin-bottom: 0;
+}
+.reg input, .log input ,.everi input,.cveri input{
+    margin:1rem 0rem ;
+    padding: 1rem;
+    border-radius: 1rem;
+    background-color: white;
+}
+.reg button, .log button , .everi button,.cveri button{
+    position:relative;
+    left:25%;
+    bottom:0%;
+    margin: 1rem 0 1.5rem;
+    width:50%;
+}
+
+.reg button:hover:not(.log button,.everi button,.cveri button){
+    color:white;
+}
+/********************login*******************************/
+.log{
+    background:url("/images/login.png") no-repeat;
+    background-size:100%;
+}
+/*********************email-verification*********************/
+.everi,.cveri{
+    background:url("/images/verify.png") no-repeat;
+    background-size: 100%;
+}
+/*********************code-verification*********************/
+
+/*********************footer****************************/
+.footer{
+    position:relative;
+    bottom: 0;
+    margin:3rem 0 0 !important;
+    background-color: black;
+    padding:1.5rem 0 1rem !important;
+}
+.footer a{
+    padding:0 1rem 0 1rem;
+    font-size: 2rem;
+    color:#eeebdd;
+}
+.footer a:hover,.footer p:hover{
+    color:#ce1212;
+}
