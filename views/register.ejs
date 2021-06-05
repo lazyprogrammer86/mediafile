@@ -1,11 +1,13 @@
 <%- include("partials/header")-%>
+<body onload="hideRegButton()">
+</body>
 <div class="row reg">
 <form class="card col-md-6" action="/<%=regaction%>" method="post">
 <h1><%=reghead%></h1>
 <p id="regwarn" style="color:red"><%=regWarning%></p>
 <input class="form-control" type="text" name="username" value="" placeholder="Email Id" required>
 <input class="form-control" type="password" name="password" value="" placeholder="Password" required>
-<input class="form-control" type="password" name="password-re" value="" placeholder="Re-enter Password" required>
+<input class="form-control" type="password" name="password_re" value="" placeholder="Re-enter Password" required>
 <button class="btn btn-lg btn-outline-warning" type="submit" name="button">Sign Up</button>
 </form>
 </div>

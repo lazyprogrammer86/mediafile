@@ -25,6 +25,7 @@ body{
     background-color: #eeebdd;
     width:inherit;
 }
+
 /********************preview****************************/
 .prev-first {
 margin:2rem auto 2rem;
@@ -72,7 +73,7 @@ width: inherit;
      height:35rem;
  }
 /***********************register***********************/
-.reg, .log ,.everi, .cveri{
+.reg, .log ,.everi, .cveri, .uplo{
     background-color: white;
     text-align: center;
     margin: 5rem auto;
@@ -82,27 +83,27 @@ width: inherit;
     box-shadow:0px 0px 16px 10px rgba(0, 0, 0, 0.2);
     background-size:100%;
 }
-.reg form, .log form, .everi form, .cveri form{
+.reg form, .log form, .everi form, .cveri form,.uplo form{
     padding: 0rem 1rem;
     position: relative;
     left:25%;
     border:10px;
     border-radius: 10px;
 }
-.reg h1,.log h1 ,.everi h1,.cveri h1{
+.reg h1,.log h1 ,.everi h1,.cveri h1,.uplo h1{
 padding:1rem 0 0rem;
 color:#1b1717;
 }
-.reg p,.log p ,.everi p,.cveri p{
+.reg p,.log p ,.everi p,.cveri p ,.uplo p{
     margin-bottom: 0;
 }
-.reg input, .log input ,.everi input,.cveri input{
+.reg input, .log input ,.everi input,.cveri input ,.uplo input{
     margin:1rem 0rem ;
     padding: 1rem;
     border-radius: 1rem;
     background-color: white;
 }
-.reg button, .log button , .everi button,.cveri button{
+.reg button, .log button , .everi button,.cveri button ,.uplo button{
     position:relative;
     left:25%;
     bottom:0%;
@@ -125,6 +126,12 @@ color:#1b1717;
 }
 /*********************code-verification*********************/
 
+
+/********************upload******************************/
+.uplo{
+    background:url("/images/upload.png");
+    background-repeat: round;
+}
 /*********************footer****************************/
 .footer{
     position:relative;

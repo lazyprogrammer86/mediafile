@@ -1,0 +1,10 @@
+<%-include("partials/header")%>
+<div class="row uplo">
+<form class="card col-md-6" action="/upload" method="post">
+<h1>Upload Here!</h1>
+<p id="regwarn" style="color:red"><%=uploWarning%></p>
+<input class="form-control" type="file" name="fileName" placeholder="select a photo or video file" required>
+<button class="btn btn-lg btn-primary" type="submit" name="button" value="upload">Upload</button>
+</form>
+</div>
+<%-include("partials/footer")%>
