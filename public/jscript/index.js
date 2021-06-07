@@ -7,3 +7,6 @@ function hideButtons(){
 hideRegButton();
 hideLogButton();
 };
+// function changeRegButton(){
+//     document.querySelector(".reg").firstElementChild.lastElementChild.innerHTML ="Change";
+// }
