@@ -50,7 +50,7 @@ app.use(session({
     },
     secret: process.env.SECRET_KEY,
     resave: false,
-    saveUninitialized: false,
+    saveUninitialized: true,
     store: store,
     cookie: {
         maxAge: 1000 * 60 * 60 * 24 * 30
@@ -59,7 +59,8 @@ app.use(session({
 //////////////////////userSchema//////////////////////////
 const usersSchema = new mongoose.Schema({
     username: String,
-    password: String
+    password: String,
+    name:String
 });
 
 const User = new mongoose.model("Users", usersSchema);
@@ -147,7 +148,7 @@ app.get("/cverify", (req, res) => {
 app.get("/media", (req, res) => {
     if (req.isAuthenticated()) {
         res.render("media", {
-            title: "hello " + req.user.username
+            title: "hello " + req.user.name
         })
     } else {
         res.render("login", {
@@ -158,14 +159,19 @@ app.get("/media", (req, res) => {
 });
 
 app.get("/upload", (req, res) => {});
+
+
 //////////////////////////////app/post() methods/////////////////////////////
+
+
 app.post("/register", (req, res) => {
     const username = req.body.username;
     const password = req.body.password;
-    const password_re = req.body.password_re;
+    const name = req.body.name;
     const user = new User({
         username: username,
-        password: md5(password)
+        password: md5(password),
+        name:name
     });
     User.findOne({
         username: username
@@ -177,13 +183,6 @@ app.post("/register", (req, res) => {
                     regaction: "register",
                     reghead: "Sign Up",
                     regWarning: emailExist
-                });
-            } else if (password != password_re) {
-                res.render("register", {
-                    title: "Register-MediaFile",
-                    regaction: "register",
-                    reghead: "Sign Up",
-                    regWarning: passwordNotMatch
                 });
             } else {
                 user.save((err) => {
