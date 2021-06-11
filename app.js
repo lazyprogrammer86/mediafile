@@ -3,13 +3,12 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const ejs = require("ejs");
 const mongoose = require("mongoose");
+const md5 = require("md5");
 const session = require("express-session");
 const passport = require("passport");
-const passportLocalMongoose = require("passport-local-mongoose");
+const LocalStrategy = require("passport-local").Strategy;
 const uuid = require("uuid");
-// const jsdom = require("jsdom");
-// const {JSDOM}=jsdom;
-// const myFn = require("./public/jscript/index.js");
+var MongoDBStore = require('connect-mongodb-session')(session);
 const app = express();
 
 app.set("view engine", "ejs");
@@ -19,12 +18,8 @@ app.use(bodyParser.urlencoded({
 }));
 //////////////////////////////////Trial code/////////////////////////////////////////////
 
-// const dom = new JSDOM("register");
-// console.log(dom.window.document.querySelector(".reg"));
-
-
 ////////////////////////////////////Warning texts and others///////////////////////////
-const emailExistWarn = "The entered Email ID is already linked to an existing account please try to  login or register with another Email ID";
+const emailExist = "The entered Email ID is already linked to an existing account please try to  login or register with another Email ID";
 const passwordNotMatch = "Two password do not match please make sure you have entered the same password";
 const errorMessage = "There was an error in the process please try again later"
 const userNotExist = "User with the given email does not exist";
@@ -38,40 +33,76 @@ mongoose.connect("mongodb://localhost:27017/mediafileDB", {
     useNewUrlParser: true,
     useUnifiedTopology: true
 });
-mongoose.set('useCreateIndex', true);
+const store = new MongoDBStore({
+    uri: 'mongodb://localhost:27017/mediafileDB',
+    collection: 'Sessions'
+});
 //////////////////////////////media upload///////////////////////
 
 // const mediaSchema = new mongoose.Schema({
 //
 // });
 
+
+app.use(session({
+    genid: function(req) {
+        return uuid.v4()
+    },
+    secret: process.env.SECRET_KEY,
+    resave: false,
+    saveUninitialized: false,
+    store: store,
+    cookie: {
+        maxAge: 1000 * 60 * 60 * 24 * 30
+    }
+}));
 //////////////////////userSchema//////////////////////////
 const usersSchema = new mongoose.Schema({
     username: String,
     password: String
 });
-app.use(require('express-session')({
-    genid: function(req) {
-        return uuid.v4();
-    },
-    secret: process.env.SECRET_KEY,
-    resave: false,
-    saveUninitialized: false
-}));
 
+const User = new mongoose.model("Users", usersSchema);
 app.use(passport.initialize());
 app.use(passport.session());
 
-usersSchema.plugin(passportLocalMongoose);
-
-const User = new mongoose.model("Users", usersSchema);
-passport.use(User.createStrategy());
-
-passport.serializeUser(User.serializeUser());
 
 
-passport.deserializeUser(User.deserializeUser());
-/////////////////////////// app.get() methods ////////////////////////////////
+const strategy = new LocalStrategy(verifyCallback);
+
+function verifyCallback(username, password, done) {
+    User.findOne({
+        username: username
+    }, (err, foundUser) => {
+        if (!err) {
+            if (foundUser) {
+                if (foundUser.password === md5(password)) {
+                    return done(null, foundUser);
+                } else {
+                    return done(null, false);
+                }
+            } else {
+                return done(null, false);
+            }
+        } else {
+            return done(null, false);
+        }
+    });
+}
+
+passport.use(strategy);
+
+passport.serializeUser(function(user, done) {
+    done(null, user.id);
+});
+
+passport.deserializeUser(function(id, done) {
+    User.findById(id, function(err, user) {
+        done(err, user);
+    });
+});
+
+/////////////////////// app.get() methods ////////////////////////////////
 
 app.get("/", (req, res) => {
     res.render("Preview", {
@@ -115,10 +146,9 @@ app.get("/cverify", (req, res) => {
 
 app.get("/media", (req, res) => {
     if (req.isAuthenticated()) {
-        console.log(req.session.passport.user);
         res.render("media", {
-            title: "welcome"
-        });
+            title: "hello " + req.user.username
+        })
     } else {
         res.render("login", {
             title: "login-MediaFile",
@@ -127,34 +157,26 @@ app.get("/media", (req, res) => {
     }
 });
 
-app.get("/upload", (req, res) => {
-    if (req.isAuthenticated()) {
-        res.render("upload", {
-            title: "upload",
-            uploWarning: ""
-        });
-    } else {
-        res.render("login", {
-            title: "login-MediaFile",
-            logWarning: loginFirst
-        });
-    }
-});
+app.get("/upload", (req, res) => {});
 //////////////////////////////app/post() methods/////////////////////////////
 app.post("/register", (req, res) => {
     const username = req.body.username;
     const password = req.body.password;
     const password_re = req.body.password_re;
+    const user = new User({
+        username: username,
+        password: md5(password)
+    });
     User.findOne({
         username: username
-    }, (err, user) => {
+    }, (err, foundUser) => {
         if (!err) {
-            if (user) {
+            if (foundUser) {
                 res.render("register", {
                     title: "Register-MediaFile",
                     regaction: "register",
                     reghead: "Sign Up",
-                    regWarning: emailExistWarn
+                    regWarning: emailExist
                 });
             } else if (password != password_re) {
                 res.render("register", {
@@ -164,94 +186,93 @@ app.post("/register", (req, res) => {
                     regWarning: passwordNotMatch
                 });
             } else {
-                User.register({
-                    username: username
-                }, password, function(err, user) {
+                user.save((err) => {
                     if (err) {
-                        res.send(err.message);
+                        res.render("register", {
+                            title: "Register-MediaFile",
+                            regaction: "register",
+                            reghead: "Sign Up",
+                            regWarning: errorMessage
+                        });
                     } else {
-                        passport.authenticate("local")(req, res, () => {
-                            res.redirect("/media");
-                            console.log("request from passport" + req + "\nresponse" + respo);
+                        passport.authenticate("local")(req, res, (err) => {
+                            if (err) {
+                                console.log(err);
+                                res.render("login", {
+                                    title: "login-MediaFile",
+                                    logWarning: errorMessage
+                                });
+                            } else {
+                                res.redirect("/media");
+                            }
                         });
                     }
                 });
             }
         } else {
-            console.log(err.message);
-            res.redirect("/register");
+            console.log("error from registration : " + err);
+            res.render("register", {
+                title: "Register-MediaFile",
+                regaction: "register",
+                reghead: "Sign Up",
+                regWarning: errorMessage
+            });
         }
     });
 });
 
 
-
-// app.post('/login', passport.authenticate('local', { successRedirect:'/media',
-//                                                     failureRedirect: '/login'}));
-
-
-
-
 app.post("/login", (req, res) => {
-const user = new User({
-    username:req.body.username,
-    password:req.body.password
-});
-User.findOne({username:req.body.username},(err,foundUser)=>{
-    if(!err){
-        if(foundUser){
-            req.login(user,(err)=>{
-                if(err){
-                    res.render("login", {
-                        title: "login-MediaFile",
-                        logWarning: errorMessage
-                    });
-                }else{
-                    passport.authenticate("local")(req,res,(err)=>{
-                        console.log(err)
-                        if(err){
-                            console.log(err);
+    const user = {
+        username: req.body.username,
+        password: req.body.password
+    }
+    User.findOne({
+        username: req.body.username
+    }, (err, foundUser) => {
+        if (!err) {
+            if (foundUser) {
+                if (foundUser.password === md5(req.body.password)) {
+                    passport.authenticate("local")(req, res, (err) => {
+                        if (err) {
                             res.render("login", {
                                 title: "login-MediaFile",
                                 logWarning: errorMessage
                             });
-                        }else{
+                        } else {
                             res.redirect("/media");
                         }
                     });
+                } else {
+                    res.render("login", {
+                        title: "login-MediaFile",
+                        logWarning: loginError
+                    });
                 }
-            });
-        }else{
+            } else {
+                res.render("login", {
+                    title: "login-MediaFile",
+                    logWarning: userNotExist
+                });
+            }
+        } else {
             res.render("login", {
                 title: "login-MediaFile",
-                logWarning:userNotExist
+                logWarning: errorMessage
             });
         }
-    }else{
-        console.log(err);
-        res.render("login", {
-            title: "login-MediaFile",
-            logWarning: errorMessage
-        });
-    }
+    });
 });
-});
-
-
-
 
 app.post("/upload", (req, res) => {
 
 });
-
-
 
 app.post("/everify", (req, res) => {
     res.redirect("/cverify");
 });
 
 app.post("/cverify", (req, res) => {
-
     res.render("register", {
         title: "Chnage-PassWord",
         regaction: "changepassword",
@@ -260,6 +281,17 @@ app.post("/cverify", (req, res) => {
     });
 
 });
+
+function errorHandler(err, req, res, next) {
+    if (err) {
+        console.log(err);
+        res.render("login", {
+            title: "login-MediaFile",
+            logWarning: errorMessage
+        });
+    }
+}
+app.use(errorHandler);
 //////////////////////////////server set up//////////////////////////////////
 app.listen(process.env.PORT || 3000, () => {
     console.log("up and running on port 3000");
