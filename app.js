@@ -17,25 +17,53 @@ app.use(bodyParser.urlencoded({
     extended: true
 }));
 //////////////////////////////////Trial code/////////////////////////////////////////////
+////////////////////////////////send mail //////////////////////////////////////////////
+function sendMail(username, otp) {
+    const sgMail = require('@sendgrid/mail')
+    sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+    const msg = {
+        to: username, // Change to your recipient
+        from: process.env.SENDER_ID, // Change to your verified sender
+        subject: 'OTP from mediafile',
+        text: 'This is one time password sent to your registered email id to authorize it is the right owner of the account at media file and chage password of your Media file account',
+        html: '<p> your OTP is : <h1>' + otp + '</h1> and it is valid for next three minutes</p>',
+    }
+    sgMail
+        .send(msg)
+        .then(() => {
+            console.log('Email sent')
+        })
+        .catch((error) => {
+            console.log(error.response.body.errors);
+        });
+}
 
+function otpGenerator() {
+    let otp = Math.floor((Math.random()) * 1000000);
+    console.log(otp);
+    return otp;
+}
 ////////////////////////////////////Warning texts and others///////////////////////////
 const emailExist = "The entered Email ID is already linked to an existing account please try to  login or register with another Email ID";
 const passwordNotMatch = "Two password do not match please make sure you have entered the same password";
 const errorMessage = "There was an error in the process please try again later"
-const userNotExist = "User with the given email does not exist";
+const userNotExist = "User with the given email does not exist entered email is : ";
 const loginError = "Entered email or password do not match please try again";
 const uploadWarning = "This action could not happen due to technical problems please try again later"
 const loginFirst = "Log into the website to access this path";
+const everWarn = "entered email id is not registered with us to change password and the entered email id is : ";
+const otpWarn = "entered code isnt matching with the one time password sent to you on your registered email";
 const uploadSuccess = "";
 ////////////////////////mongoDB connection and reltated///////////////////////////
 
 mongoose.connect("mongodb://localhost:27017/mediafileDB", {
     useNewUrlParser: true,
-    useUnifiedTopology: true
+    useUnifiedTopology: true,
+    useFindAndModify:false
 });
 const store = new MongoDBStore({
     uri: 'mongodb://localhost:27017/mediafileDB',
-    collection: 'Sessions'
+    collection: 'Sessions',
 });
 //////////////////////////////media upload///////////////////////
 
@@ -60,7 +88,8 @@ app.use(session({
 const usersSchema = new mongoose.Schema({
     username: String,
     password: String,
-    name:String
+    name: String,
+    otp: String
 });
 
 const User = new mongoose.model("Users", usersSchema);
@@ -114,8 +143,6 @@ app.get("/", (req, res) => {
 app.get("/register", (req, res) => {
     res.render("register", {
         title: "Register-MediaFile",
-        regaction: "register",
-        reghead: "Sign Up",
         regWarning: ""
     });
 });
@@ -134,16 +161,11 @@ app.get("/logout", (req, res) => {
 
 app.get("/everify", (req, res) => {
     res.render("everify", {
-        title: "Verification"
+        title: "Verification",
+        everWarn: ""
     })
 });
 
-app.get("/cverify", (req, res) => {
-    res.render("cverify", {
-        title: "verification",
-        mailId: "media@file.com"
-    });
-});
 
 app.get("/media", (req, res) => {
     if (req.isAuthenticated()) {
@@ -171,7 +193,7 @@ app.post("/register", (req, res) => {
     const user = new User({
         username: username,
         password: md5(password),
-        name:name
+        name: name
     });
     User.findOne({
         username: username
@@ -180,8 +202,6 @@ app.post("/register", (req, res) => {
             if (foundUser) {
                 res.render("register", {
                     title: "Register-MediaFile",
-                    regaction: "register",
-                    reghead: "Sign Up",
                     regWarning: emailExist
                 });
             } else {
@@ -189,8 +209,6 @@ app.post("/register", (req, res) => {
                     if (err) {
                         res.render("register", {
                             title: "Register-MediaFile",
-                            regaction: "register",
-                            reghead: "Sign Up",
                             regWarning: errorMessage
                         });
                     } else {
@@ -212,8 +230,6 @@ app.post("/register", (req, res) => {
             console.log("error from registration : " + err);
             res.render("register", {
                 title: "Register-MediaFile",
-                regaction: "register",
-                reghead: "Sign Up",
                 regWarning: errorMessage
             });
         }
@@ -251,7 +267,7 @@ app.post("/login", (req, res) => {
             } else {
                 res.render("login", {
                     title: "login-MediaFile",
-                    logWarning: userNotExist
+                    logWarning: userNotExist + req.body.username
                 });
             }
         } else {
@@ -268,30 +284,115 @@ app.post("/upload", (req, res) => {
 });
 
 app.post("/everify", (req, res) => {
-    res.redirect("/cverify");
+    const userMail = req.body.fpemail;
+    const otp = otpGenerator();
+    User.findOneAndUpdate({
+        username: userMail
+    },{$set:{otp:otp}},{new:true} ,(err, foundUser) => {
+        if (!err) {
+            if (foundUser) {
+                res.render("cverify", {
+                    title: "verification",
+                    mailId: userMail,
+                    cverWarn:""
+                });
+                sendMail(userMail,otp);
+            } else {
+                res.render("everify", {
+                    title: "failed to verify",
+                    everWarn: everWarn + userMail
+                });
+            }
+        } else {
+            res.render("everify", {
+                title: "failed to verify",
+                everWarn: errorMessage
+            });
+        }
+    });
 });
 
 app.post("/cverify", (req, res) => {
-    res.render("register", {
-        title: "Chnage-PassWord",
-        regaction: "changepassword",
-        reghead: "Change of Password",
-        regWarning: "Enter new Password"
+    const userMail = req.body.button;
+    const recivedOtp = req.body.pfcode;
+    User.findOne({
+        username: userMail
+    }, (err, foundUser) => {
+        if (!err) {
+            if (foundUser.otp === recivedOtp) {
+                res.render("repassword", {
+                    title: "reset password",
+                    pasWarning: "",
+                    userMail: userMail
+                });
+            } else {
+                res.render("cverify", {
+                    title: "verification-failed",
+                    cverWarn: otpWarn,
+                    mailId:userMail
+                });
+            }
+        } else {
+            res.render("cverify", {
+                title: "verification-failed",
+                cverWarn: errorMessage,
+                mailId:userMail
+            });
+        }
     });
+});
 
+app.post("/passwordChange", (req, res) => {
+    userMail = req.body.button;
+    password = md5(req.body.password);
+    password_re = md5(req.body.password_re);
+    if (password != password_re) {
+        res.render("repassword", {
+            title: "reset password",
+            pasWarning: passwordNotMatch,
+            userMail: userMail
+        });
+    }else{
+        User.findOneAndUpdate({
+            username: userMail
+        }, {$set: {
+            password: password
+        }},(err, doc) => {
+            if(!err){
+                passport.authenticate("local")(req, res, (err) => {
+                    if (err) {
+                        console.log(err);
+                        res.render("login", {
+                            title: "login-MediaFile",
+                            logWarning: errorMessage
+                        });
+                    } else {
+                        res.redirect("/media");
+                    }
+                });
+            }else{
+                res.render("repassword", {
+                    title: "reset password",
+                    logWarning: errorMessage
+                });
+            }
+        });
+    }
 });
 
 function errorHandler(err, req, res, next) {
     if (err) {
         console.log(err);
-        res.render("login", {
-            title: "login-MediaFile",
-            logWarning: errorMessage
-        });
+        res.send("<h1>"+err+"<h1>");
+    } else {
+        console.log("error from error handler");
     }
 }
 app.use(errorHandler);
 //////////////////////////////server set up//////////////////////////////////
 app.listen(process.env.PORT || 3000, () => {
     console.log("up and running on port 3000");
+});
+process.on('warning', (warning) => {
+    console.log(warning.stack);
 });

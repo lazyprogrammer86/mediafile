@@ -3,8 +3,9 @@
 <form class="card col-md-6" action="/cverify" method="post">
 <h1 style="color:#2978b5">Verification</h1>
 <p>An eamil with the code has been sent to the mail ID : <b><%=mailId%></b> enter the code in the box below and press on verify</p>
+<p id="regwarn" style="color:red"><%=cverWarn%></p>
 <input class="form-control" type="text" name="pfcode" value="" placeholder="enter 6 digit code" required>
-<button class="btn btn-lg btn-outline-secondary" type="submit" name="button">Submit</button>
+<button class="btn btn-lg btn-outline-secondary" type="submit" value="<%=mailId%>" name="button">Submit</button>
 </form>
 </div>
 <%-include("partials/footer")-%>
