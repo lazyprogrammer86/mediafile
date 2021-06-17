@@ -9,6 +9,9 @@ const passport = require("passport");
 const LocalStrategy = require("passport-local").Strategy;
 const uuid = require("uuid");
 var MongoDBStore = require('connect-mongodb-session')(session);
+const fs = require('fs');
+const path = require('path');
+const multer = require('multer');
 const app = express();
 
 app.set("view engine", "ejs");
@@ -16,7 +19,9 @@ app.use(express.static("public"));
 app.use(bodyParser.urlencoded({
     extended: true
 }));
+app.use(bodyParser.json());
 //////////////////////////////////Trial code/////////////////////////////////////////////
+
 ////////////////////////////////send mail //////////////////////////////////////////////
 function sendMail(username, otp) {
     const sgMail = require('@sendgrid/mail')
@@ -41,6 +46,7 @@ function sendMail(username, otp) {
 function otpGenerator() {
     let otp = Math.floor((Math.random()) * 1000000);
     console.log(otp);
+    console.log("generated otp is : " + md5(otp));
     return otp;
 }
 ////////////////////////////////////Warning texts and others///////////////////////////
@@ -53,25 +59,20 @@ const uploadWarning = "This action could not happen due to technical problems pl
 const loginFirst = "Log into the website to access this path";
 const everWarn = "entered email id is not registered with us to change password and the entered email id is : ";
 const otpWarn = "entered code isnt matching with the one time password sent to you on your registered email";
-const uploadSuccess = "";
+const passChnaged = "successfully changed the password";
+const noImages = "there are no images in your media file account uploa one to start using our service";
+const uploadSuccess = "successfully uploaded the images";
 ////////////////////////mongoDB connection and reltated///////////////////////////
-
 mongoose.connect("mongodb://localhost:27017/mediafileDB", {
     useNewUrlParser: true,
     useUnifiedTopology: true,
-    useFindAndModify:false
+    useFindAndModify: false
 });
 const store = new MongoDBStore({
     uri: 'mongodb://localhost:27017/mediafileDB',
     collection: 'Sessions',
 });
-//////////////////////////////media upload///////////////////////
-
-// const mediaSchema = new mongoose.Schema({
-//
-// });
-
-
+////////////////////////// cookie and session ///////////////////
 app.use(session({
     genid: function(req) {
         return uuid.v4()
@@ -84,15 +85,29 @@ app.use(session({
         maxAge: 1000 * 60 * 60 * 24 * 30
     }
 }));
+//////////////////////////////media upload///////////////////////
+const mediaSchema = new mongoose.Schema({
+    name: String,
+    desc: String,
+    img: {
+        data: Buffer,
+        contentType: String
+    }
+});
+
+const Media = new mongoose.model("Media", mediaSchema);
 //////////////////////userSchema//////////////////////////
 const usersSchema = new mongoose.Schema({
     username: String,
     password: String,
     name: String,
-    otp: String
+    otp: String,
+    media: [mediaSchema]
 });
 
 const User = new mongoose.model("Users", usersSchema);
+
+////////////////////////////passport stuff//////////////////////
 app.use(passport.initialize());
 app.use(passport.session());
 
@@ -132,12 +147,27 @@ passport.deserializeUser(function(id, done) {
     });
 });
 
+/////////////////////////multer and filesystem////////////////////////////
+var storage = multer.diskStorage({
+    destination: function(req, file, cb) {
+        cb(null, __dirname + '/public/uploadedImages')
+    },
+    filename: function(req, file, cb) {
+        cb(null, file.fieldname + '-' + Date.now());
+    }
+});
+
+const upload = multer({
+    storage: storage
+});
 /////////////////////// app.get() methods ////////////////////////////////
 
 app.get("/", (req, res) => {
+
     res.render("Preview", {
         title: "Media-File"
     });
+
 });
 
 app.get("/register", (req, res) => {
@@ -169,9 +199,39 @@ app.get("/everify", (req, res) => {
 
 app.get("/media", (req, res) => {
     if (req.isAuthenticated()) {
-        res.render("media", {
-            title: "hello " + req.user.name
-        })
+        // console.log(req.user);
+        User.findOne({
+            username: req.user.username
+        }, (err, foundUser) => {
+            if (err) {
+                res.redirect("/login");
+            } else {
+                if (!foundUser.media.length) {
+                const media={
+                    name:"Default Image",
+                    desc:"This is the default image and you can delete it by pressing on the expand button which is in the center and then scrolling all the way down and pressing on the delete button , but before that you need upload a photo.",
+                    img: {
+                        data: fs.readFileSync(path.join(__dirname + '/public/uploadedImages/fileName-1623960693517')),
+                        contentType: 'image/png'
+                    }
+                }
+                foundUser.media.push(media);
+                foundUser.save(err=>{
+                    if(err){
+                        res.redirect("/");
+                    }else{
+                        res.redirect("/media");
+                    }
+                })
+                } else {
+                    res.render("media", {
+                        title: "Hello " + req.user.name,
+                        mediaWarn: "",
+                        media: foundUser.media
+                    });
+                }
+            }
+        });
     } else {
         res.render("login", {
             title: "login-MediaFile",
@@ -180,8 +240,19 @@ app.get("/media", (req, res) => {
     }
 });
 
-app.get("/upload", (req, res) => {});
-
+app.get("/upload", (req, res) => {
+    if (req.isAuthenticated()) {
+        res.render("upload", {
+            title: "Upload files",
+            uploWarning: ""
+        });
+    } else {
+        res.render("login", {
+            title: "login-MediaFile",
+            logWarning: loginFirst
+        });
+    }
+});
 
 //////////////////////////////app/post() methods/////////////////////////////
 
@@ -248,7 +319,7 @@ app.post("/login", (req, res) => {
         if (!err) {
             if (foundUser) {
                 if (foundUser.password === md5(req.body.password)) {
-                    passport.authenticate("local")(req, res, (err) => {
+                    passport.authenticate("local")(req, res, () => {
                         if (err) {
                             res.render("login", {
                                 title: "login-MediaFile",
@@ -279,24 +350,26 @@ app.post("/login", (req, res) => {
     });
 });
 
-app.post("/upload", (req, res) => {
-
-});
-
 app.post("/everify", (req, res) => {
     const userMail = req.body.fpemail;
     const otp = otpGenerator();
     User.findOneAndUpdate({
         username: userMail
-    },{$set:{otp:otp}},{new:true} ,(err, foundUser) => {
+    }, {
+        $set: {
+            otp: md5(otp)
+        }
+    }, {
+        new: true
+    }, (err, foundUser) => {
         if (!err) {
             if (foundUser) {
                 res.render("cverify", {
                     title: "verification",
                     mailId: userMail,
-                    cverWarn:""
+                    cverWarn: ""
                 });
-                sendMail(userMail,otp);
+                sendMail(userMail, otp);
             } else {
                 res.render("everify", {
                     title: "failed to verify",
@@ -314,12 +387,12 @@ app.post("/everify", (req, res) => {
 
 app.post("/cverify", (req, res) => {
     const userMail = req.body.button;
-    const recivedOtp = req.body.pfcode;
+    const recivedOtp = Number(req.body.pfcode);
     User.findOne({
         username: userMail
     }, (err, foundUser) => {
         if (!err) {
-            if (foundUser.otp === recivedOtp) {
+            if ((foundUser.otp) === md5(recivedOtp)) {
                 res.render("repassword", {
                     title: "reset password",
                     pasWarning: "",
@@ -329,14 +402,14 @@ app.post("/cverify", (req, res) => {
                 res.render("cverify", {
                     title: "verification-failed",
                     cverWarn: otpWarn,
-                    mailId:userMail
+                    mailId: userMail
                 });
             }
         } else {
             res.render("cverify", {
                 title: "verification-failed",
                 cverWarn: errorMessage,
-                mailId:userMail
+                mailId: userMail
             });
         }
     });
@@ -352,25 +425,33 @@ app.post("/passwordChange", (req, res) => {
             pasWarning: passwordNotMatch,
             userMail: userMail
         });
-    }else{
+    } else {
         User.findOneAndUpdate({
             username: userMail
-        }, {$set: {
-            password: password
-        }},(err, doc) => {
-            if(!err){
-                passport.authenticate("local")(req, res, (err) => {
+        }, {
+            $set: {
+                password: password
+            }
+        }, (err, doc) => {
+            if (!err) {
+                res.render("login", {
+                    title: "login-MediaFile",
+                    logWarning: passChnaged
+                });
+                User.findOneAndUpdate({
+                    username: doc.username
+                }, {
+                    $set: {
+                        otp: "otp"
+                    }
+                }, (err, doc) => {
                     if (err) {
                         console.log(err);
-                        res.render("login", {
-                            title: "login-MediaFile",
-                            logWarning: errorMessage
-                        });
                     } else {
-                        res.redirect("/media");
+                        console.log("otp deleted successfully");
                     }
                 });
-            }else{
+            } else {
                 res.render("repassword", {
                     title: "reset password",
                     logWarning: errorMessage
@@ -380,10 +461,79 @@ app.post("/passwordChange", (req, res) => {
     }
 });
 
+app.post("/upload", upload.single('fileName'), (req, res, next) => {
+    const username = req.user.username;
+    const media = new Media({
+        name: req.body.name,
+        desc: req.body.desc,
+        img: {
+            data: fs.readFileSync(path.join(__dirname + '/public/uploadedImages/' + req.file.filename)),
+            contentType: 'image/png'
+        }
+    });
+    if (req.isAuthenticated()) {
+        console.log("uploading");
+        User.findOne({
+            username: username
+        }, (err, foundUser) => {
+            if (!err) {
+                foundUser.media.push(media);
+                foundUser.save((err) => {
+                    if (err) {
+                        console.log(err);
+                        res.render("upload", {
+                            title: "Upload files",
+                            uploWarning: errorMessage
+                        });
+                    } else {
+                        res.redirect("/media");
+                    }
+                });
+            } else {
+                res.render("upload", {
+                    title: "Upload files",
+                    uploWarning: errorMessage
+                });
+            }
+        });
+    } else {
+        res.render("login", {
+            title: "login-MediaFile",
+            logWarning: loginFirst
+        });
+    }
+});
+
+app.post("/deletePhoto", (req, res) => {
+    const username = req.user.username;
+    const id = req.body.button;
+    if (req.isAuthenticated()) {
+        User.findOneAndUpdate({
+            username:username
+        }, {
+            $pull: {
+                media: {
+                    _id:id
+                }
+            }
+        }, function(err) {
+            if (err) {
+                res.render("media", {
+                    title: "Hello " + req.user.name,
+                    mediaWarn: errorMessage,
+                    media: foundUser.media
+                });
+            } else {
+                res.redirect("/media");
+            }
+        });
+    }
+});
+
 function errorHandler(err, req, res, next) {
     if (err) {
         console.log(err);
-        res.send("<h1>"+err+"<h1>");
+        res.send("<h1>" + err + "</h1>");
     } else {
         console.log("error from error handler");
     }

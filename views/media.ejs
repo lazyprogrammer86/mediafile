@@ -1,10 +1,12 @@
 <%-include("partials/header")-%>
+
 <body onload="hideButtons()"></body>
 <main>
     <section class="text-center container">
-        <div class="row prev-first">
+        <div class="row prev-first media-first">
             <div class="col-md-5 mx-auto">
-                <h1 class="fw-light">Hello there</h1>
+                <h1 class="fw-light"><%=title%></h1>
+                <h3 style="color:red" ;><%=mediaWarn%></h3>
                 <p class="lead text-muted">These are the pictures that you have uploaded want to upload more click on upload</p>
                 <p>
                     <a href="/upload" class="btn btn-lg btn-outline-primary">Upload</a>
@@ -13,7 +15,39 @@
             </div>
         </div>
     </section>
-
-
+    <section class="container-fluid">
+        <div class="row media-second">
+            <%media.forEach((media)=>{%>
+            <div class="col-md-3">
+                    <a class="expandSign" type="button" class="btn" data-bs-toggle="modal" data-bs-target="#a<%=media.id%>">
+                        <i class="fas fa-expand"></i>
+                    </a>
+                <img src="data:image/<%=media.img.contentType%>;base64,
+					<%=media.img.data.toString('base64')%>" >
+                <div class="modal fade" id="a<%=media.id%>" tabindex="-1" aria-labelledby="image" aria-hidden="true">
+                    <div class="modal-dialog modal-xl">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title" id="exampleModalLabel"><%=media.name%></h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <img style="margin:2rem 0rem 2rem;" id="bigImage" src="data:image/<%=media.img.contentType%>;base64,
+                					<%=media.img.data.toString('base64')%>" alt="">
+                                <p><%=media.desc%></p>
+                            </div>
+                            <div class="modal-footer">
+                                <a href="" id="compressBig" data-bs-dismiss="modal"><i class="fas fa-compress"></i></a>
+                                <form class="" action="/deletePhoto" method="post">
+                                <button type="submit" class="btn" id="deleteBig" name="button" value="<%=media.id%>" ><i class="fas fa-trash-alt"></i></button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <%});%>
+        </div>
+    </section>
 </main>
 <%-include("partials/footer")-%>

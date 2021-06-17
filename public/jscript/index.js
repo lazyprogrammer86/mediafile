@@ -1,8 +1,8 @@
 function alertFunction() {
     alert("This is a DEMO Website");
 }
-function hideRegButton(){document.querySelector(".third").style.visibility = "hidden";}
-function hideLogButton(){document.querySelector(".fourth").style.visibility = "hidden";}
+function hideRegButton(){$(".third")[0].style.visibility = "hidden";}
+function hideLogButton(){$(".fourth")[0].style.visibility = "hidden";}
 function hideButtons(){
 hideRegButton();
 hideLogButton();
