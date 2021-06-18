@@ -166,7 +166,7 @@ video {
 }
 
 .media-second img:hover{
-box-shadow:0 0 15px 5px grey;
+box-shadow:0 0 25px 5px grey;
 }
 #deleteBig{
     font-size: 2rem;

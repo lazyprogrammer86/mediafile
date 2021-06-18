@@ -62,14 +62,15 @@ const otpWarn = "entered code isnt matching with the one time password sent to y
 const passChnaged = "successfully changed the password";
 const noImages = "there are no images in your media file account uploa one to start using our service";
 const uploadSuccess = "successfully uploaded the images";
+const defalutDesc = "This is the default image and you can delete it by pressing on the expand button which is in the center and then scrolling all the way down and pressing on the delete button , but before that you need upload a photo."
 ////////////////////////mongoDB connection and reltated///////////////////////////
-mongoose.connect("mongodb://localhost:27017/mediafileDB", {
+mongoose.connect(process.env.DATABASE_URL, {
     useNewUrlParser: true,
     useUnifiedTopology: true,
     useFindAndModify: false
 });
 const store = new MongoDBStore({
-    uri: 'mongodb://localhost:27017/mediafileDB',
+    uri: process.env.DATABASE_URL,
     collection: 'Sessions',
 });
 ////////////////////////// cookie and session ///////////////////
@@ -102,6 +103,7 @@ const usersSchema = new mongoose.Schema({
     password: String,
     name: String,
     otp: String,
+    otpVerified:Boolean,
     media: [mediaSchema]
 });
 
@@ -163,11 +165,13 @@ const upload = multer({
 /////////////////////// app.get() methods ////////////////////////////////
 
 app.get("/", (req, res) => {
-
     res.render("Preview", {
         title: "Media-File"
     });
 
+});
+app.get("/about", (req, res) => {
+    res.redirect("/");
 });
 
 app.get("/register", (req, res) => {
@@ -207,22 +211,22 @@ app.get("/media", (req, res) => {
                 res.redirect("/login");
             } else {
                 if (!foundUser.media.length) {
-                const media={
-                    name:"Default Image",
-                    desc:"This is the default image and you can delete it by pressing on the expand button which is in the center and then scrolling all the way down and pressing on the delete button , but before that you need upload a photo.",
-                    img: {
-                        data: fs.readFileSync(path.join(__dirname + '/public/uploadedImages/fileName-1623960693517')),
-                        contentType: 'image/png'
+                    const media = {
+                        name: "Default Image",
+                        desc: defalutDesc,
+                        img: {
+                            data: fs.readFileSync(path.join(__dirname + '/public/uploadedImages/fileName-1623960693517')),
+                            contentType: 'image/png'
+                        }
                     }
-                }
-                foundUser.media.push(media);
-                foundUser.save(err=>{
-                    if(err){
-                        res.redirect("/");
-                    }else{
-                        res.redirect("/media");
-                    }
-                })
+                    foundUser.media.push(media);
+                    foundUser.save(err => {
+                        if (err) {
+                            res.redirect("/");
+                        } else {
+                            res.redirect("/media");
+                        }
+                    })
                 } else {
                     res.render("media", {
                         title: "Hello " + req.user.name,
@@ -267,35 +271,59 @@ app.post("/register", (req, res) => {
         name: name
     });
     User.findOne({
-        username: username
-    }, (err, foundUser) => {
-        if (!err) {
-            if (foundUser) {
-                res.render("register", {
-                    title: "Register-MediaFile",
-                    regWarning: emailExist
-                });
-            } else {
-                user.save((err) => {
-                    if (err) {
-                        res.render("register", {
-                            title: "Register-MediaFile",
-                            regWarning: errorMessage
-                        });
-                    } else {
-                        passport.authenticate("local")(req, res, (err) => {
+            username: username
+        }, (err, foundUser) => {
+            if (!err) {
+                if (foundUser) {
+                    res.render("register", {
+                        title: "Register-MediaFile",
+                        regWarning: emailExist
+                    });
+                } else {
+                    user.save((err) => {
                             if (err) {
-                                console.log(err);
-                                res.render("login", {
-                                    title: "login-MediaFile",
-                                    logWarning: errorMessage
+                                res.render("register", {
+                                    title: "Register-MediaFile",
+                                    regWarning: errorMessage
                                 });
                             } else {
-                                res.redirect("/media");
-                            }
-                        });
-                    }
-                });
+                                passport.authenticate("local")(req, res, (err) => {
+                                        if (err) {
+                                            console.log(err);
+                                            res.render("login", {
+                                                title: "login-MediaFile",
+                                                logWarning: errorMessage
+                                            });
+                                        } else{
+                                        const otp = otpGenerator();
+                                        sendMail(username, otp);
+                                        User.findOneAndUpdate({
+                                            username: username
+                                        }, {
+                                            $set: {
+                                                otp: md5(otp)
+                                            }
+                                        }, {
+                                            new: true
+                                        }, (err, foundUser) => {
+                                            if (err) {
+                                                res.render("register", {
+                                                    title: "login-MediaFile",
+                                                    logWarning: errorMessage
+                                                });
+                                            } else {
+                                                res.render("cverify", {
+                                                    title: "verification",
+                                                    mailId: username,
+                                                    verifyAction: "regsverify",
+                                                    cverWarn: ""
+                                                });
+                                            }
+                                        });
+                                    }
+                                });
+                        }
+                    });
             }
         } else {
             console.log("error from registration : " + err);
@@ -307,6 +335,34 @@ app.post("/register", (req, res) => {
     });
 });
 
+app.post("/regsverify",(req,res)=>{
+    console.log(req.body);
+    const otpRecived=Number(req.body.pfcode);
+    const username=req.body.button;
+    User.findOne({username:username},(err,foundUser)=>{
+        if(!err){
+            if(!foundUser){
+                res.redirect("/register");
+            }else{
+                if(foundUser.otp===md5(otpRecived)){
+                    res.redirect("/media");
+                }else{
+                    res.render("cverify", {
+                        title: "verification",
+                        mailId: username,
+                        verifyAction: "regsverify",
+                        cverWarn: otpWarn
+                    });
+                }
+            }
+        }else{
+            res.render("register", {
+                title: "Register-MediaFile",
+                regWarning: errorMessage
+            });
+        }
+    });
+});
 
 app.post("/login", (req, res) => {
     const user = {
@@ -367,6 +423,7 @@ app.post("/everify", (req, res) => {
                 res.render("cverify", {
                     title: "verification",
                     mailId: userMail,
+                    verifyAction: "cverify",
                     cverWarn: ""
                 });
                 sendMail(userMail, otp);
@@ -402,6 +459,7 @@ app.post("/cverify", (req, res) => {
                 res.render("cverify", {
                     title: "verification-failed",
                     cverWarn: otpWarn,
+                    verifyAction:"cverify",
                     mailId: userMail
                 });
             }
@@ -409,6 +467,7 @@ app.post("/cverify", (req, res) => {
             res.render("cverify", {
                 title: "verification-failed",
                 cverWarn: errorMessage,
+                verifyAction:"cverify",
                 mailId: userMail
             });
         }
@@ -509,11 +568,11 @@ app.post("/deletePhoto", (req, res) => {
     const id = req.body.button;
     if (req.isAuthenticated()) {
         User.findOneAndUpdate({
-            username:username
+            username: username
         }, {
             $pull: {
                 media: {
-                    _id:id
+                    _id: id
                 }
             }
         }, function(err) {
