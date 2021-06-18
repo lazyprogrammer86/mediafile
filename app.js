@@ -46,7 +46,6 @@ function sendMail(username, otp) {
 function otpGenerator() {
     let otp = Math.floor((Math.random()) * 1000000);
     console.log(otp);
-    console.log("generated otp is : " + md5(otp));
     return otp;
 }
 ////////////////////////////////////Warning texts and others///////////////////////////
@@ -103,7 +102,7 @@ const usersSchema = new mongoose.Schema({
     password: String,
     name: String,
     otp: String,
-    otpVerified:Boolean,
+    otpVerified: Boolean,
     media: [mediaSchema]
 });
 
@@ -203,7 +202,6 @@ app.get("/everify", (req, res) => {
 
 app.get("/media", (req, res) => {
     if (req.isAuthenticated()) {
-        // console.log(req.user);
         User.findOne({
             username: req.user.username
         }, (err, foundUser) => {
@@ -271,59 +269,61 @@ app.post("/register", (req, res) => {
         name: name
     });
     User.findOne({
-            username: username
-        }, (err, foundUser) => {
-            if (!err) {
-                if (foundUser) {
-                    res.render("register", {
-                        title: "Register-MediaFile",
-                        regWarning: emailExist
-                    });
-                } else {
-                    user.save((err) => {
+        username: username
+    }, (err, foundUser) => {
+        if (!err) {
+            if (foundUser) {
+                res.render("register", {
+                    title: "Register-MediaFile",
+                    regWarning: emailExist
+                });
+            } else {
+                user.save((err) => {
+                    if (err) {
+                        res.render("register", {
+                            title: "Register-MediaFile",
+                            regWarning: errorMessage
+                        });
+                    } else {
+                        console.log("registerd successfully");
+                        passport.authenticate("local")(req, res, (err) => {
                             if (err) {
-                                res.render("register", {
-                                    title: "Register-MediaFile",
-                                    regWarning: errorMessage
+                                console.log(err);
+                                res.render("login", {
+                                    title: "login-MediaFile",
+                                    logWarning: errorMessage
                                 });
                             } else {
-                                passport.authenticate("local")(req, res, (err) => {
-                                        if (err) {
-                                            console.log(err);
-                                            res.render("login", {
-                                                title: "login-MediaFile",
-                                                logWarning: errorMessage
-                                            });
-                                        } else{
-                                        const otp = otpGenerator();
-                                        sendMail(username, otp);
-                                        User.findOneAndUpdate({
-                                            username: username
-                                        }, {
-                                            $set: {
-                                                otp: md5(otp)
-                                            }
-                                        }, {
-                                            new: true
-                                        }, (err, foundUser) => {
-                                            if (err) {
-                                                res.render("register", {
-                                                    title: "login-MediaFile",
-                                                    logWarning: errorMessage
-                                                });
-                                            } else {
-                                                res.render("cverify", {
-                                                    title: "verification",
-                                                    mailId: username,
-                                                    verifyAction: "regsverify",
-                                                    cverWarn: ""
-                                                });
-                                            }
+                                const otp = otpGenerator();
+                                sendMail(username, otp);
+                                console.log("otp sent successfully");
+                                User.findOneAndUpdate({
+                                    username: username
+                                }, {
+                                    $set: {
+                                        otp: md5(otp)
+                                    }
+                                }, {
+                                    new: true
+                                }, (err, foundUser) => {
+                                    if (err) {
+                                        res.render("register", {
+                                            title: "login-MediaFile",
+                                            logWarning: errorMessage
+                                        });
+                                    } else {
+                                        res.render("cverify", {
+                                            title: "verification",
+                                            mailId: username,
+                                            verifyAction: "regsverify",
+                                            cverWarn: ""
                                         });
                                     }
                                 });
-                        }
-                    });
+                            }
+                        });
+                    }
+                });
             }
         } else {
             console.log("error from registration : " + err);
@@ -335,18 +335,34 @@ app.post("/register", (req, res) => {
     });
 });
 
-app.post("/regsverify",(req,res)=>{
-    console.log(req.body);
-    const otpRecived=Number(req.body.pfcode);
-    const username=req.body.button;
-    User.findOne({username:username},(err,foundUser)=>{
-        if(!err){
-            if(!foundUser){
+app.post("/regsverify", (req, res) => {
+    const otpRecived = Number(req.body.pfcode);
+    const username = req.body.button;
+    User.findOne({
+        username: username
+    }, (err, foundUser) => {
+        if (!err) {
+            if (!foundUser) {
                 res.redirect("/register");
-            }else{
-                if(foundUser.otp===md5(otpRecived)){
+            } else {
+                if (foundUser.otp === md5(otpRecived)) {
+                    User.findOneAndUpdate({
+                        username: username
+                    }, {
+                        $set: {
+                            otp: "otp"
+                        }
+                    }, {
+                        new: true
+                    }, (err, user) => {
+                        if (err) {
+                            console.log("err");
+                        } else {
+                            console.log("success");
+                        }
+                    });
                     res.redirect("/media");
-                }else{
+                } else {
                     res.render("cverify", {
                         title: "verification",
                         mailId: username,
@@ -355,7 +371,7 @@ app.post("/regsverify",(req,res)=>{
                     });
                 }
             }
-        }else{
+        } else {
             res.render("register", {
                 title: "Register-MediaFile",
                 regWarning: errorMessage
@@ -382,6 +398,7 @@ app.post("/login", (req, res) => {
                                 logWarning: errorMessage
                             });
                         } else {
+                            console.log("logged in successfully");
                             res.redirect("/media");
                         }
                     });
@@ -427,6 +444,7 @@ app.post("/everify", (req, res) => {
                     cverWarn: ""
                 });
                 sendMail(userMail, otp);
+                console.log("otp sent successfully");
             } else {
                 res.render("everify", {
                     title: "failed to verify",
@@ -459,7 +477,7 @@ app.post("/cverify", (req, res) => {
                 res.render("cverify", {
                     title: "verification-failed",
                     cverWarn: otpWarn,
-                    verifyAction:"cverify",
+                    verifyAction: "cverify",
                     mailId: userMail
                 });
             }
@@ -467,7 +485,7 @@ app.post("/cverify", (req, res) => {
             res.render("cverify", {
                 title: "verification-failed",
                 cverWarn: errorMessage,
-                verifyAction:"cverify",
+                verifyAction: "cverify",
                 mailId: userMail
             });
         }
@@ -493,6 +511,7 @@ app.post("/passwordChange", (req, res) => {
             }
         }, (err, doc) => {
             if (!err) {
+                console.log("password changed successfully");
                 res.render("login", {
                     title: "login-MediaFile",
                     logWarning: passChnaged
@@ -531,7 +550,7 @@ app.post("/upload", upload.single('fileName'), (req, res, next) => {
         }
     });
     if (req.isAuthenticated()) {
-        console.log("uploading");
+        console.log("uploaded successfully");
         User.findOne({
             username: username
         }, (err, foundUser) => {
@@ -583,6 +602,7 @@ app.post("/deletePhoto", (req, res) => {
                     media: foundUser.media
                 });
             } else {
+                console.log("deleted successfully");
                 res.redirect("/media");
             }
         });
