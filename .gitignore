@@ -118,4 +118,5 @@ dist
 .pnp.*
 
 public/images/
+public/uploadedImages/
 public/video/

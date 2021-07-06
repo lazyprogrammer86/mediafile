@@ -268,6 +268,7 @@ app.post("/register", (req, res) => {
         password: md5(password),
         name: name
     });
+    if(username&&password&&name){
     User.findOne({
         username: username
     }, (err, foundUser) => {
@@ -333,6 +334,9 @@ app.post("/register", (req, res) => {
             });
         }
     });
+}else{
+    res.redirect("/register");
+}
 });
 
 app.post("/regsverify", (req, res) => {
@@ -618,6 +622,7 @@ function errorHandler(err, req, res, next) {
     }
 }
 app.use(errorHandler);
+
 //////////////////////////////server set up//////////////////////////////////
 app.listen(process.env.PORT || 3000, () => {
     console.log("up and running on port 3000");
